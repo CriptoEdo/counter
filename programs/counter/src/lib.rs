@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("2Xhx73FUcvfPrwqiLceTDxvAp7JoRhndpDCXhxVYkRb1");
+declare_id!("FgmCt9nkSv5reTBfQdHEukmwe2d6bhyvXXeKJbjUm7WS");
 
 #[program]
 pub mod counter {
@@ -8,18 +8,17 @@ pub mod counter {
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let counter = &mut ctx.accounts.counter;
+        counter.bump = ctx.bumps.counter; // store bump seed in `Counter` account
         msg!("Counter account created! Current count: {}", counter.count);
-
+        msg!("Counter bump: {}", counter.bump);
         Ok(())
     }
 
     pub fn increment(ctx: Context<Increment>) -> Result<()> {
         let counter = &mut ctx.accounts.counter;
         msg!("Previous counter: {}", counter.count);
-
         counter.count += 1;
-        msg!("Counter incremented to: {}", counter.count);
-        
+        msg!("Counter incremented! Current count: {}", counter.count);
         Ok(())
     }
 }
@@ -29,19 +28,26 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    // Create and initialize `Counter` account using a PDA as the address
     #[account(
         init,
+        seeds = [b"counter"], // optional seeds for pda
+        bump,                 // bump seed for pda
         payer = user,
         space = 8 + Counter::INIT_SPACE
     )]
     pub counter: Account<'info, Counter>,
-    
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct Increment<'info> {
-    #[account(mut)]
+    // The address of the `Counter` account must be a PDA derived with the specified `seeds`
+    #[account(
+        mut,
+        seeds = [b"counter"], // optional seeds for pda
+        bump = counter.bump,  // bump seed for pda stored in `Counter` account
+    )]
     pub counter: Account<'info, Counter>,
 }
 
@@ -49,4 +55,5 @@ pub struct Increment<'info> {
 #[derive(InitSpace)]
 pub struct Counter {
     pub count: u64, // 8 bytes
+    pub bump: u8,   // 1 byte
 }
